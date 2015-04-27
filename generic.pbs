@@ -1,0 +1,95 @@
+#PBS -l nodes=24:ppn=8,pmem=2gb
+#PBS -l walltime=06:00:00
+#PBS -m abe
+#PBS -e generic.e
+#PBS -o generic.o
+#PBS -q batch
+
+# variables to set for this run 
+
+PACKAGENAME=com.umd.project;
+
+# *** you will need to modify CLASSNAME for each assignment ***
+
+CLASSNAME=WikiStats
+
+# location of local input directory 
+# *** you will need to modify this for each assignment ***
+
+LOCALINPUT=/panfs/roc/scratch/Team4Input/* 
+
+# location of local output directory
+
+LOCALOUTPUT=/panfs/roc/scratch/$USER/output
+
+# location of hdfs directories, these will be on local
+# scratch and not visible to you except in log messages
+
+HDFSINPUT=input
+HDFSOUTPUT=output
+
+# should not need to change anything below this line
+# unless you add command line arguments to your program
+# assumes that .jar .java and class have same name
+# as in CLASSNAME.java CLASSNAME.jar CLASSNAME
+# --------------------------------------------------------
+
+# let pbs know where you are!
+
+cd $PBS_O_WORKDIR
+
+# set up hadoop
+
+module load hadoop
+
+setup_cluster
+
+start-all.sh
+
+# give hadoop time initialize
+
+sleep 120
+
+# delete old copies of hdfsinfput and hdfsoutput, probably nothing there
+# but just in case
+
+hadoop fs -rmr $HDFSINPUT
+hadoop fs -rmr $HDFSOUTPUT
+
+# delete old copies of local output file
+
+rm -fr $LOCALOUTPUT
+
+# create hdfs input directory and copy local data to it, then display
+
+hadoop fs -mkdir $HDFSINPUT
+hadoop fs -put $LOCALINPUT $HDFSINPUT
+hadoop fs -ls $HDFSINPUT
+
+# run the program!
+# if you add command line arguments you'll need to add them here
+
+hadoop jar $CLASSNAME.jar $PACKAGENAME.$CLASSNAME $HDFSINPUT 10 5 10
+
+# display results file in generic.o
+
+hadoop fs -lsr /
+
+hadoop fs -ls $HDFSOUTPUT
+
+hadoop fs -cat $HDFSOUTPUT/part*
+
+# create a local output directory and copy HDFSOUTPUT to it
+
+mkdir $LOCALOUTPUT
+
+# copy from hdfs to local file system
+
+hadoop fs -get $HDFSOUTPUT/part* $LOCALOUTPUT
+
+# now delete HDFS files - they will probably go away when your job
+# ends, but just in case.
+
+hadoop fs -rmr $HDFSOUTPUT
+hadoop fs -rmr $HDFSINPUT
+
